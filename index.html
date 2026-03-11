@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inka Dziok - Portfolio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            background: #f5f5f5;
+            padding: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #764ba2;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .page-info {
+            text-align: center;
+            padding: 10px;
+            background: #f9f9f9;
+            color: #666;
+        }
+        
+        .pdf-viewer {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            background: #e8e8e8;
+            min-height: 600px;
+        }
+        
+        #pdf-canvas {
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ddd;
+            font-size: 0.9em;
+        }
+        
+        .download-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .download-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Inka Dziok</h1>
+            <p>Portfolio</p>
+        </div>
+        
+        <div class="controls">
+            <button id="prev-btn" onclick="previousPage()">← Previous</button>
+            <div class="page-info">
+                <span>Page <span id="page-num">1</span> of <span id="page-count">0</span></span>
+            </div>
+            <button id="next-btn" onclick="nextPage()">Next →</button>
+            <button onclick="zoomIn()">🔍 Zoom In</button>
+            <button onclick="zoomOut()">🔍 Zoom Out</button>
+            <a href="PORTFOLIO_INKA_DZIOK.pdf" download style="align-self: center;">
+                <button type="button">⬇️ Download PDF</button>
+            </a>
+        </div>
+        
+        <div id="page-count-display" class="page-info" style="display: none;"></div>
+        
+        <div class="pdf-viewer">
+            <canvas id="pdf-canvas"></canvas>
+        </div>
+        
+        <div class="footer">
+            <p>View my portfolio in PDF format | 
+            <a href="https://github.com/Inka-D" class="download-link">GitHub Profile</a></p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // PDF.js setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        const pdfPath = 'PORTFOLIO_INKA_DZIOK.pdf';
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let scale = 1.5;
+        
+        // Render the page
+        function renderPage(num) {
+            pageRendering = true;
+            pdfDoc.getPage(num).then(function(page) {
+                const viewport = page.getViewport({scale: scale});
+                const canvas = document.getElementById('pdf-canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+                const task = page.render(renderContext);
+                task.promise.then(function() {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                });
+            });
+            
+            document.getElementById('page-num').textContent = num;
+            updateButtonStates();
+        }
+        
+        function queuePage(num) {
+            if (num < 1 || num > pdfDoc.numPages) return;
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+        
+        function nextPage() {
+            pageNum++;
+            if (pageNum > pdfDoc.numPages) pageNum = pdfDoc.numPages;
+            queuePage(pageNum);
+        }
+        
+        function previousPage() {
+            pageNum--;
+            if (pageNum < 1) pageNum = 1;
+            queuePage(pageNum);
+        }
+        
+        function zoomIn() {
+            scale += 0.2;
+            queuePage(pageNum);
+        }
+        
+        function zoomOut() {
+            if (scale > 0.4) {
+                scale -= 0.2;
+                queuePage(pageNum);
+            }
+        }
+        
+        function updateButtonStates() {
+            document.getElementById('prev-btn').disabled = pageNum === 1;
+            document.getElementById('next-btn').disabled = pageNum === pdfDoc.numPages;
+        }
+        
+        // Load the PDF
+        pdfjsLib.getDocument(pdfPath).promise.then(function(pdf) {
+            pdfDoc = pdf;
+            document.getElementById('page-count').textContent = pdf.numPages;
+            updateButtonStates();
+            renderPage(pageNum);
+        }).catch(function(error) {
+            console.error('Error loading PDF:', error);
+            document.querySelector('.pdf-viewer').innerHTML = '<p style="color: red;">Error loading PDF. Please try refreshing the page.</p>';
+        });
+    </script>
+</body>
+</html>
